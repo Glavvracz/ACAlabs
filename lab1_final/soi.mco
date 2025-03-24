@@ -1,0 +1,133 @@
+[Microcode]
+;uAR |Label |ALU   |S1    |S2    |Dest  |ExtIR |Const |JCond |Adr   |Mem   |MAdr  |MDest |Regs
+;---------------------------------------------------------------------------------------------
+; Default Start Label 
+0000 |Start |      |      |      |      |      |      |      |      |RW    |PC    |IR    |      
+0001 |      |ADD   |PC    |Const |PC    |      |4     |Jump1 |      |      |      |      |RR    
+;---------------------------------------------------------------------------------------------
+;
+;Initialize R4 and R1 with zeros
+;
+;C = 0
+0002 |ZEROS |S1    |Const |      |C     |Word  |0     |      |      |      |      |      |      
+;R1 = C = 0
+0003 |      |      |      |      |      |      |      |      |      |      |      |      |WF1   
+;R4 = C = 0
+0004 |      |      |      |      |      |      |      |True  |Start |      |      |      |WF2   
+;------------------------------------------------------------------------------------------------
+;
+;
+;R1 = A(R4) + IR(R7) ; Write R4 address with R7 shift to R1
+;
+;MAR = A(R4) + 0x200(512)
+0005 |ADDR  |ADD   |A     |Const |MAR   |Word  |512   |      |      |      |      |      |      
+;MAR = B(R7) + 0x280(640), MDR = [MAR]
+0006 |      |ADD   |Const |B     |MAR   |Word  |640   |      |      |RW    |MAR   |MDR   |      
+; C = MDR, [MAR] = MDR
+0007 |      |S1    |MDR   |      |C     |      |      |      |      |WW    |MAR   |MDR   |      
+; R3 = C
+0008 |      |      |      |      |      |      |      |True  |Start |      |      |      |WF3   
+;---------------------------------------------------------------------------------------------------
+;
+;
+;R5 = R4; R4 = 0
+;
+;R5 = R4
+0009 | MOVZERO |S2  |      |B     |C    |Word  |      |      |      |     |      |       |WF1  
+;R4 = 0
+000A |         |S2  |      |Const |C    |Word  |0     |      |      |     |      |       |WF2  
+;Return
+000B |         |    |      |      |     |      |      |True  |Start |     |      |       |    
+;--------------------------------------------------------------------------------------------------
+;
+;
+;R9 = [R5 + 640]; R10 = [R2 + 704]; Copy values from addresses located in R5 and R2 to R9 and R10
+;
+; MAR = R5 + 0x280(640)
+000C |ADDR2  |ADD   |A     |Const |MAR   |Word  |640   |      |      |      |      |      |      
+; MAR = R2 + 0x2C0(704); MDR = [MAR]
+000D |       |ADD   |Const |B     |MAR   |Word  |704   |      |      |RW    |MAR   |MDR   |      
+;C = MDR
+000E |       |S1    |MDR   |      |C     |      |      |      |      |RW    |MAR   |MDR   |      
+;R9 = C (first word)
+000F |       |S1    |MDR   |      |C     |      |      |      |      |      |      |      |WF3   
+;R10 = C (second word)
+0010 |       |      |      |      |      |      |      |True  |Start |      |      |      |WF4   
+;---------------------------------------------------------------------------------------------------
+;
+;
+;TMP1 = A(R9) * B(R10); C = TMP1 + B(R3); R3 = C; TMP1 = A(R5) + 4; IF (TMP1 <= 60) do C = TMP1 = 0
+;
+;TMP1 = A(R9) * B(R10), B = R3
+0011 |IFCALCS |MUL   |A     |B     |TMP1  |Word  |      |      |        |      |      |      |RBF3  
+;C = TMP1 + B(R3), A = R5
+0012 |        |ADD   |TMP1  |B     |C     |      |      |      |        |      |      |      |RAF4  
+;TMP1 = A(R5) + 4, R3 = C
+0013 |        |ADD   |A     |Const |TMP1  |Word  |4     |      |        |      |      |      |WF3   
+; C = TMP1 - 60; IF (C <= 0) go to IFCALCS1
+0014 |        |SUB   |TMP1  |Const |C     |Word  |60    |LE    |IFCALCS1|      |      |      |      
+; TMP1 = 0
+0015 |        |S1    |Const |      |TMP1  |Word  |0     |      |        |      |      |      |      
+; C = TMP1
+0016 |IFCALCS1|S1    |TMP1  |      |C     |Word  |      |      |        |      |      |      |      
+; R4 = C
+0017 |        |      |      |      |      |      |      |True  |Start   |      |      |      |WF4   
+;---------------------------------------------------------------------------------------------------
+;
+;
+;second loop
+;
+;TMP1 = A(R2) + 4
+0018 |LOOP2|ADD   |A     |Const |TMP1  |Word  |4     |      |      |      |      |      |      
+;IF (TMP1 - 60 > 0) -> end
+0019 |     |SUB   |TMP1  |Const |      |Word  |60    |GT    |Start |      |      |      |      
+;else C = TMP1
+001A |     |S1    |TMP1  |      |C     |Word  |      |      |      |      |      |      |      
+;R2 = C, repeat
+001B |     |S1    |IR    |      |PC    |Word  |      |True  |Start |      |      |      |WF1   
+;--------------------------------------------------------------------------------------------------
+;
+;
+;[R3 + 0x0300] = R1; Write R1 to adress R3 with 0x0300 shift
+;
+;MAR = A(R3) + 0x0300(768)
+001C |ADDR3|ADD   |A     |Const |MAR   |Word  |768   |      |      |      |      |      |  
+;MDR = B(R2)    
+001D |     |S2    |      |B     |MDR   |      |      |      |      |      |      |      |     
+;[MAR] = MDR
+001E |     |      |      |      |      |      |      |True  |Start |WW    |MAR   |MDR   |  
+;-------------------------------------------------------------------------------------------------
+;
+;
+;IF (R4 < = 4) do C = TMP1 = 6; R2 = TMP1 = R1 + 4; IF (TMP1 <= 124) do repeat
+;
+;TMP1 = 4 - R4, IF (TMP1 >= 0) go to MAINLOOP1
+001F |MAINLOOP |RSUB  |Const |B     |TMP1  |Word  |4     |GE    |MAINLOOP1|      |      |      |      
+;TMP1 = 60
+0020 |         |S1    |Const |      |TMP1  |Word  |60    |      |         |      |      |      |      
+;C = TMP1
+0021 |MAINLOOP1|S1    |TMP1  |      |C     |Word  |      |      |         |      |      |      |      
+;TMP1 = R1 + 4; R2 = TMP1 
+0022 |         |ADD   |A     |Const |TMP1  |Word  |4     |      |         |      |      |      |WF2   
+;IF (TMP1 > 124) go to start
+0023 |         |SUB   |TMP1  |Const |      |      |124   |GT    |Start    |      |      |      |      
+;C = TMP1
+0024 |         |S1    |TMP1  |      |C     |Word  |      |      |         |      |      |      |      
+;R1 = C, repeat
+0025 |         |S1    |Const |      |PC    |Word  |4     |True  |Start    |      |      |      |WF1   
+;---------------------------------------------------------------------------------------------------
+
+[Jump Tables]
+;Opcode   |Jump Table 1 |Jump Table 2 
+NOP       |Start        |
+ZEROS     |ZEROS        | 
+ADDR      |ADDR         |
+MOVZERO   |MOVZERO      |   
+ADDR2     |ADDR2        | 
+IFCALCS   |IFCALCS      | 
+LOOP2     |LOOP2        |                                                     
+ADDR3     |ADDR3        |                             
+MAINLOOP  |MAINLOOP     |             
+                    
+             
+

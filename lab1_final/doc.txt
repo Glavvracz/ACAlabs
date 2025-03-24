@@ -1,0 +1,32 @@
+0000: ZEROS     R4,R1
+0004: ADDR      R1,R4,R7
+0008: ZEROS     R3,R2
+000C: ZEROS     R5,R3
+0010: MOVZERO   R5,R4
+0014: ADDR2     R5,R2,R9,R10
+0018: IFCALCS   R9,R10,R3,R5
+001C: LOOP2     R2,0x0014
+0020: ADDR3     R1,R3 
+0024: MAINLOOP  R1,R4    
+
+[Pseudocode]
+R4 = 0    ;ZEROS     R4,R1
+FOR R1 = 0 TO 124 krok o 4   ;MAINLOOP  R1,R4 
+	R7 = MEM[R1 + 0x200]     ;
+	MEM[R4 + 0x280] = R7     ;ADDR      R1,R4,R7
+	R3 = 0     ;ZEROS     R3,R2
+		   ;ZEROS     R5,R3
+	R5 = R4    ;MOVZERO   R5,R4
+	FOR R2 = 0 TO 60 krok o 4     ;LOOP2     R2,0x0014
+		R9 = MEM[R5 + 0x280]     ;
+		R10 = MEM[R2 + 0x2C0]    ;ADDR2     R5,R2,R9,R10
+		R3 = R3 + R9*R10       ;
+		R5 = R5 + 4            ;
+		IF ( R5 > 60 )         ;
+		THEN R5 = 0            ;IFCALCS   R9,R10,R3,R5
+	END FOR
+	MEM[R1 + 0x300] = R3     ;ADDR3     R1,R3 
+	R4 = R4 - 4       ;
+	IF ( R4 < 0 )     ;
+	THEN R4 = 60      ;MAINLOOP  R1,R4 
+END FOR
